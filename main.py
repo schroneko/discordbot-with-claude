@@ -3,70 +3,84 @@ import os
 import anthropic
 import dotenv
 import requests
+import re
 from bs4 import BeautifulSoup
+from constants import (
+    MODEL,
+    MAX_TOKENS,
+    TEMPERATURE,
+    SYSTEM_PROMPT,
+    SUMMARY_PROMPT,
+    MAX_MESSAGE_LENGTH,
+    WAIT_MESSAGE,
+    TOO_LONG_MESSAGE,
+    URL_CONTENT_ERROR_MESSAGE,
+)
 
-# .envファイルから環境変数を読み込む
+
 dotenv.load_dotenv()
 
-# Discordクライアントの初期設定
 intents = discord.Intents.default()
-# メッセージ内容にアクセスするためのインテントを有効化
 intents.message_content = True
 client = discord.Client(intents=intents)
 
-# Anthropic APIクライアントの初期化
 anthropic_client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
 
 @client.event
 async def on_ready():
-    # ログイン完了時に実行される
     print(f"We have logged in as {client.user}")
 
 
 @client.event
 async def on_message(message):
-    # メッセージ受信時に実行される
-    # メッセージ送信者がbot自身または他のbotの場合は処理をスキップ
-    if message.author.bot:
+    allowed_channels = [1223899218893082670, 1224538937536675913]
+    if message.author.bot or message.channel.id not in allowed_channels:
         return
 
-    temp_message = await message.reply("ちょっとまってにゃ！")
+    temp_message = await message.reply(WAIT_MESSAGE)
     input_text = message.content
     answer = await fetch_response(input_text)
+    print("Answer: ", answer)
 
-    if len(answer) > 2000:
-        await temp_message.edit(content="ちょっと長すぎるにゃ！")
+    if len(answer) > MAX_MESSAGE_LENGTH:
+        print("In case of too long message", len(answer), answer)
+        await temp_message.edit(content=TOO_LONG_MESSAGE)
     else:
         await temp_message.edit(content=answer)
 
 
 async def fetch_response(input_text):
-    # URLかどうかを判断
-    if input_text.startswith("http://") or input_text.startswith("https://"):
-        # ページの内容をスクレイピング
-        page_response = requests.get(input_text)
+    url_pattern = r'https?://[^\s]+'
+    urls = re.findall(url_pattern, input_text)
+    
+    if urls:  # URLが一つでも見つかった場合
+        first_url = urls[0]  # 最初のURLを取得
+        page_response = requests.get(first_url)
         page_content = BeautifulSoup(page_response.text, "html.parser")
+        if page_content.body is None:
+            return URL_CONTENT_ERROR_MESSAGE
         text = page_content.body.get_text(separator="\n", strip=True)
-        prompt = f"与えられた文章から重要な要点を抽出し、それに続けて適切な解説を加えてください。フォーマットは Markdown で出力しなさい。余計な前置き、後書きは不要で、内容から出力を始めなさい。出力言語は日本語で。\n\n```\n{text}\n"
+        prompt = "```text\n" + text + "\n```\n\n" + SUMMARY_PROMPT
     else:
         prompt = input_text
 
-    # ストリーミングモードでAnthropic APIを使用
     response_text = ""
     with anthropic_client.messages.stream(
-        # model="claude-3-opus-20240229",
-        model="claude-3-haiku-20240307",
-        max_tokens=1000,
-        temperature=0.2,
-        system="あなたは優秀なAIアシスタントです。",
+        model=MODEL,
+        max_tokens=MAX_TOKENS,
+        temperature=TEMPERATURE,
+        system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": prompt}],
     ) as stream:
         for text in stream.text_stream:
             response_text += text
 
-    return response_text
+    triple_quote_content = response_text.split('"""')
+    if len(triple_quote_content) >= 3:
+        return triple_quote_content[1]
+    else:
+        return response_text
 
 
-# Discord Botを起動
 client.run(os.environ["DISCORD_BOT_TOKEN"])
