@@ -18,6 +18,7 @@ from constants import (
 )
 
 
+import chardet
 dotenv.load_dotenv()
 
 intents = discord.Intents.default()
@@ -26,45 +27,64 @@ client = discord.Client(intents=intents)
 
 anthropic_client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
+allowed_channels = list(map(int, os.getenv("ALLOWED_CHANNELS", "").split(",")))
+
 
 @client.event
 async def on_ready():
-    print(f"We have logged in as {client.user}")
+    print(f"{client.user}としてログインしました")
+
+def extract_backquote_text(response_text):
+    backquote_content = response_text.split('```')
+    if len(backquote_content) >= 3:
+        return backquote_content[1]
 
 
 @client.event
 async def on_message(message):
-    allowed_channels = [1223899218893082670, 1224538937536675913]
     if message.author.bot or message.channel.id not in allowed_channels:
         return
 
-    temp_message = await message.reply(WAIT_MESSAGE)
     input_text = message.content
-    answer = await fetch_response(input_text)
-    print("Answer: ", answer)
-
-    if len(answer) > MAX_MESSAGE_LENGTH:
-        print("In case of too long message", len(answer), answer)
-        await temp_message.edit(content=TOO_LONG_MESSAGE)
-    else:
-        await temp_message.edit(content=answer)
-
-
-async def fetch_response(input_text):
-    url_pattern = r'https?://[^\s]+'
+    url_pattern = r"https?://[^\s]+"
     urls = re.findall(url_pattern, input_text)
-    
-    if urls:  # URLが一つでも見つかった場合
-        first_url = urls[0]  # 最初のURLを取得
-        page_response = requests.get(first_url)
+
+    if urls:
+        for url in urls:
+            temp_message = await message.reply(WAIT_MESSAGE)
+            text = await fetch_url_content(url)
+            if text is None:
+                await temp_message.edit(content=URL_CONTENT_ERROR_MESSAGE)
+                continue
+
+            prompt = "```text\n" + text + "\n```\n\n" + SUMMARY_PROMPT + "\n"
+            response_text = await get_anthropic_response(prompt)
+            extracted_text = extract_backquote_text(response_text)
+            if len(response_text) > MAX_MESSAGE_LENGTH:
+                await temp_message.edit(content=TOO_LONG_MESSAGE)
+            else:
+                await temp_message.edit(content=extracted_text)
+    else:
+        temp_message = await message.reply(WAIT_MESSAGE)
+        prompt = input_text
+        response_text = await get_anthropic_response(prompt)
+        if len(response_text) > MAX_MESSAGE_LENGTH:
+            await temp_message.edit(content=TOO_LONG_MESSAGE)
+        else:
+            await temp_message.edit(content=response_text)
+
+async def fetch_url_content(url):
+    try:
+        page_response = requests.get(url)
         page_content = BeautifulSoup(page_response.text, "html.parser")
         if page_content.body is None:
-            return URL_CONTENT_ERROR_MESSAGE
-        text = page_content.body.get_text(separator="\n", strip=True)
-        prompt = "```text\n" + text + "\n```\n\n" + SUMMARY_PROMPT
-    else:
-        prompt = input_text
+            return None
+        return page_content.body.get_text(separator="\n", strip=True)
+    except Exception as e:
+        print(f"URLのコンテンツ取得エラー: {e}")
+        return None
 
+async def get_anthropic_response(prompt):
     response_text = ""
     with anthropic_client.messages.stream(
         model=MODEL,
@@ -75,12 +95,6 @@ async def fetch_response(input_text):
     ) as stream:
         for text in stream.text_stream:
             response_text += text
-
-    triple_quote_content = response_text.split('"""')
-    if len(triple_quote_content) >= 3:
-        return triple_quote_content[1]
-    else:
-        return response_text
-
+    return response_text
 
 client.run(os.environ["DISCORD_BOT_TOKEN"])

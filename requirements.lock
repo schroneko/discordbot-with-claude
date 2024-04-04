@@ -28,6 +28,8 @@ certifi==2024.2.2
     # via httpcore
     # via httpx
     # via requests
+chardet==5.2.0
+    # via discordbot
 charset-normalizer==3.3.2
     # via requests
 click==8.1.7
