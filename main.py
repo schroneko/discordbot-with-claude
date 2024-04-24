@@ -35,20 +35,6 @@ allowed_channels = list(map(int, os.getenv("ALLOWED_CHANNELS", "").split(",")))
 async def on_ready():
     print(f"{client.user}としてログインしました")
 
-# def extract_json(response_text):
-#     summary_pattern = r'<summary>(.*?)</summary>'
-#     summary_match = re.search(summary_pattern, response_text, re.DOTALL)
-#     if summary_match:
-#         summary_json = summary_match.group(1).strip()
-#         print(f"Extracted JSON: {summary_json}")  # デバッグ: 抽出されたJSONを表示
-#         try:
-#             return json.loads(summary_json)
-#         except json.JSONDecodeError as e:
-#             print(f"JSON decode error: {e}")  # デバッグ: JSONデコードエラーを表示
-#             return None
-#     else:
-#         print("No summary found in the response")  # デバッグ: summaryが見つからない場合を表示
-#         return None
 
 def extract_json(response_text):
     point_pattern = r'<point>(.*?)</point>'
