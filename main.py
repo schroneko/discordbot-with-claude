@@ -4,6 +4,7 @@ import anthropic
 import dotenv
 import requests
 import re
+import json
 from bs4 import BeautifulSoup
 from constants import (
     MODEL,
@@ -34,11 +35,36 @@ allowed_channels = list(map(int, os.getenv("ALLOWED_CHANNELS", "").split(",")))
 async def on_ready():
     print(f"{client.user}としてログインしました")
 
-def extract_backquote_text(response_text):
-    backquote_content = response_text.split('```')
-    if len(backquote_content) >= 3:
-        return backquote_content[1]
+# def extract_json(response_text):
+#     summary_pattern = r'<summary>(.*?)</summary>'
+#     summary_match = re.search(summary_pattern, response_text, re.DOTALL)
+#     if summary_match:
+#         summary_json = summary_match.group(1).strip()
+#         print(f"Extracted JSON: {summary_json}")  # デバッグ: 抽出されたJSONを表示
+#         try:
+#             return json.loads(summary_json)
+#         except json.JSONDecodeError as e:
+#             print(f"JSON decode error: {e}")  # デバッグ: JSONデコードエラーを表示
+#             return None
+#     else:
+#         print("No summary found in the response")  # デバッグ: summaryが見つからない場合を表示
+#         return None
 
+def extract_json(response_text):
+    point_pattern = r'<point>(.*?)</point>'
+    point_matches = re.findall(point_pattern, response_text, re.DOTALL)
+    if point_matches:
+        summary_points = [match.strip() for match in point_matches]
+        summary_json = json.dumps({"summary": summary_points})
+        print(f"Extracted JSON: {summary_json}")  # デバッグ: 抽出されたJSONを表示
+        try:
+            return json.loads(summary_json)
+        except json.JSONDecodeError as e:
+            print(f"JSON decode error: {e}")  # デバッグ: JSONデコードエラーを表示
+            return None
+    else:
+        print("No summary points found in the response")  # デバッグ: pointsが見つからない場合を表示
+        return None
 
 @client.event
 async def on_message(message):
@@ -57,21 +83,28 @@ async def on_message(message):
                 await temp_message.edit(content=URL_CONTENT_ERROR_MESSAGE)
                 continue
 
-            prompt = "```text\n" + text + "\n```\n\n" + SUMMARY_PROMPT + "\n"
+            prompt = "```text\n" + text + "\n```\n\n" + SUMMARY_PROMPT + "\nOutput the summary points inside <summary> tags.\n"
             response_text = await get_anthropic_response(prompt)
-            extracted_text = extract_backquote_text(response_text)
-            if len(response_text) > MAX_MESSAGE_LENGTH:
-                await temp_message.edit(content=TOO_LONG_MESSAGE)
+            print(f"Response text: {response_text}")  # デバッグ: レスポンステキストを表示
+            result_json = extract_json(response_text)
+            if result_json:
+                summary_points = result_json.get("summary", [])
+                formatted_points = "\n".join(f"- {point}" for point in summary_points)
+                await temp_message.edit(content=formatted_points)
+                print(f"要約ポイントの抽出に成功しました。\n要約ポイント: {formatted_points}")
             else:
-                await temp_message.edit(content=extracted_text)
+                await temp_message.edit(content="要約ポイントの抽出に失敗しました。")
+                print(f"要約ポイントの抽出に失敗しました。\nレスポンステキスト: {response_text}")
     else:
         temp_message = await message.reply(WAIT_MESSAGE)
         prompt = input_text
         response_text = await get_anthropic_response(prompt)
         if len(response_text) > MAX_MESSAGE_LENGTH:
             await temp_message.edit(content=TOO_LONG_MESSAGE)
+            print(f"レスポンスが長すぎます。\nレスポンステキスト: {response_text}")
         else:
             await temp_message.edit(content=response_text)
+            print(f"レスポンスを送信しました。\nレスポンステキスト: {response_text}")
 
 async def fetch_url_content(url):
     try:

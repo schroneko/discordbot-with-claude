@@ -6,7 +6,9 @@ TEMPERATURE = 0.0
 
 SYSTEM_PROMPT = "This description is important. Be sure to follow the user's instructions. You must answer in Japanese."
 
-SUMMARY_PROMPT = 'Extract only the important points from the given text. Add a brief explanation for each point. The output format should be an unordered list enclosed in triple backtick (```). Use up to two levels of indentation. DO NOT include any unnecessary information. You must answer in Japanese. Start with the following text:\n\n"""'
+# SUMMARY_PROMPT = 'Extract only the important points from the given text. Add a brief explanation for each point. Output the result as a JSON object with the following format:\n\n{"summary": ["point1", "point2", ...]}.\n\nDO NOT include any unnecessary information. You must answer in Japanese.'
+
+SUMMARY_PROMPT = 'Extract only the important points from the given text. Add a brief explanation for each point. Output each summary point inside <point> tags. DO NOT include any unnecessary information. You must answer in Japanese.'
 
 MAX_MESSAGE_LENGTH = 2000
 
