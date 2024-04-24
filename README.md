@@ -1,7 +1,5 @@
 # Discord Bot with Anthropic API
 
-注：本 README は Claude により生成しております。基本的に間違ってはいないですが、Rye により環境構築しておりますので、もし利用される際は Rye を導入することを推奨します。
-
 このプロジェクトは、Anthropic API を使用して Discord 上で動作するボットを実装したものです。ユーザーからのメッセージに対して、Anthropic API を使用して適切な応答を生成し、返信します。
 
 ## 主な機能
@@ -17,21 +15,41 @@
 - python-dotenv: 環境変数を管理するためのライブラリ
 - requests: HTTP リクエストを送信するためのライブラリ
 - beautifulsoup4: HTML のパースとスクレイピングを行うためのライブラリ
+- rye: パッケージ管理とプロジェクトの設定を行うためのツール
 
-## セットアップ
+## 環境構築
 
-1. リポジトリをクローンまたはダウンロードします。
-2. 必要なライブラリをインストールします: `pip install -r requirements.lock`
-3. `.env` ファイルを作成し、以下の環境変数を設定します:
+1. [Rye](https://github.com/mitsuhiko/rye) をインストールします。
+
+2. リポジトリをクローンまたはダウンロードします。
+   ```
+   git clone https://github.com/yourusername/discordbot.git
+   cd discordbot
+   ```
+
+3. Rye を使用して環境を初期化し、依存関係を同期します。
+   ```
+   rye init
+   rye sync
+   ```
+
+4. `.env` ファイルを作成し、以下の環境変数を設定します:
    - `DISCORD_BOT_TOKEN`: Discord Bot のトークン
    - `ANTHROPIC_API_KEY`: Anthropic API の API キー
-4. `main.py` を実行してボットを起動します。
+   - `ALLOWED_CHANNELS`: ボットが応答するチャンネルIDをカンマ区切りで指定
 
 ## 使用方法
 
-1. Discord サーバーにボットを招待します。
-2. ボットにメッセージを送信すると、Anthropic API を使用して生成された応答が返ってきます。
-3. URL を送信すると、ページの内容から要点の抽出と解説が行われます。
+1. 以下のコマンドを実行してボットを起動します。
+   ```
+   rye run python main.py
+   ```
+
+2. Discord サーバーにボットを招待します。
+
+3. 設定した `ALLOWED_CHANNELS` のチャンネルでボットにメッセージを送信すると、Anthropic API を使用して生成された応答が返ってきます。
+
+4. URL を送信すると、ページの内容から要点の抽出と解説が行われます。
 
 ## 注意点
 
@@ -45,4 +63,3 @@
 ## ライセンス
 
 このプロジェクトは MIT ライセンスの下で公開されています。詳細については、`LICENSE`ファイルを参照してください。
-
