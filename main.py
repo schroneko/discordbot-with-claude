@@ -20,6 +20,7 @@ from constants import (
 
 
 import chardet
+
 dotenv.load_dotenv()
 
 intents = discord.Intents.default()
@@ -37,7 +38,7 @@ async def on_ready():
 
 
 def extract_json(response_text):
-    point_pattern = r'<point>(.*?)</point>'
+    point_pattern = r"<point>(.*?)</point>"
     point_matches = re.findall(point_pattern, response_text, re.DOTALL)
     if point_matches:
         summary_points = [match.strip() for match in point_matches]
@@ -49,8 +50,11 @@ def extract_json(response_text):
             print(f"JSON decode error: {e}")  # デバッグ: JSONデコードエラーを表示
             return None
     else:
-        print("No summary points found in the response")  # デバッグ: pointsが見つからない場合を表示
+        print(
+            "No summary points found in the response"
+        )  # デバッグ: pointsが見つからない場合を表示
         return None
+
 
 @client.event
 async def on_message(message):
@@ -69,18 +73,30 @@ async def on_message(message):
                 await temp_message.edit(content=URL_CONTENT_ERROR_MESSAGE)
                 continue
 
-            prompt = "```text\n" + text + "\n```\n\n" + SUMMARY_PROMPT + "\nOutput the summary points inside <summary> tags.\n"
+            prompt = (
+                "```text\n"
+                + text
+                + "\n```\n\n"
+                + SUMMARY_PROMPT
+                + "\nOutput the summary points inside <summary> tags.\n"
+            )
             response_text = await get_anthropic_response(prompt)
-            print(f"Response text: {response_text}")  # デバッグ: レスポンステキストを表示
+            print(
+                f"Response text: {response_text}"
+            )  # デバッグ: レスポンステキストを表示
             result_json = extract_json(response_text)
             if result_json:
                 summary_points = result_json.get("summary", [])
                 formatted_points = "\n".join(f"- {point}" for point in summary_points)
                 await temp_message.edit(content=formatted_points)
-                print(f"要約ポイントの抽出に成功しました。\n要約ポイント: {formatted_points}")
+                print(
+                    f"要約ポイントの抽出に成功しました。\n要約ポイント: {formatted_points}"
+                )
             else:
                 await temp_message.edit(content="要約ポイントの抽出に失敗しました。")
-                print(f"要約ポイントの抽出に失敗しました。\nレスポンステキスト: {response_text}")
+                print(
+                    f"要約ポイントの抽出に失敗しました。\nレスポンステキスト: {response_text}"
+                )
     else:
         temp_message = await message.reply(WAIT_MESSAGE)
         prompt = input_text
@@ -92,9 +108,13 @@ async def on_message(message):
             await temp_message.edit(content=response_text)
             print(f"レスポンスを送信しました。\nレスポンステキスト: {response_text}")
 
+
 async def fetch_url_content(url):
     try:
-        page_response = requests.get(url)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36"
+        }
+        page_response = requests.get(url, headers=headers)
         page_content = BeautifulSoup(page_response.text, "html.parser")
         if page_content.body is None:
             return None
@@ -102,6 +122,7 @@ async def fetch_url_content(url):
     except Exception as e:
         print(f"URLのコンテンツ取得エラー: {e}")
         return None
+
 
 async def get_anthropic_response(prompt):
     response_text = ""
@@ -115,5 +136,6 @@ async def get_anthropic_response(prompt):
         for text in stream.text_stream:
             response_text += text
     return response_text
+
 
 client.run(os.environ["DISCORD_BOT_TOKEN"])
